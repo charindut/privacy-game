@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>මාර්ගගත ආරක්ෂාව - සහයෝගිතා ක්‍රීඩාව</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans Sinhala', sans-serif;
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            overflow: hidden;
+        }
+        .game-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border-radius: 1.5rem;
+            width: 95%;
+            max-width: 750px;
+            padding: 2rem;
+            text-align: center;
+            position: relative;
+            max-height: 95vh;
+            overflow-y: auto;
+        }
+        .btn-bounce {
+            transition: all 0.2s ease-in-out;
+        }
+        .btn-bounce:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        .btn-bounce:active {
+            transform: translateY(1px);
+        }
+        .modal-overlay {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 1.5rem;
+            width: 90%;
+            max-width: 500px;
+            transform: scale(0.8);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        .modal-overlay.active .modal-content {
+            transform: scale(1);
+        }
+        .confetti {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            opacity: 0;
+            z-index: 50;
+        }
+        @keyframes fall {
+            0% { opacity: 1; top: -10%; transform: translateX(0) rotate(0deg); }
+            100% { opacity: 1; top: 110%; transform: translateX(20px) rotate(720deg); }
+        }
+    </style>
+</head>
+<body class="text-gray-800 antialiased">
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="game-card flex flex-col items-center">
+        <div class="text-7xl mb-4 animate-bounce">👫🛡️</div>
+        <h1 class="text-3xl md:text-4xl font-extrabold text-teal-700 mb-2">අපි ආරක්ෂිතව ඉඳිමු!</h1>
+        <p class="text-lg text-gray-600 mb-8 font-semibold">ඔබේ යාළුවාත් එක්ක එකතු වෙලා ප්‍රශ්න 10 ට උත්තර දෙන්න.</p>
+        
+        <div class="w-full max-w-md space-y-5">
+            <div class="bg-teal-50 p-4 rounded-xl border-2 border-teal-200 shadow-sm">
+                <label for="player1" class="block text-left text-sm font-bold text-teal-800 mb-2">1 වන ශිෂ්‍යයාගේ නම:</label>
+                <input type="text" id="player1" placeholder="උදා: අමායා" 
+                    class="w-full px-4 py-3 rounded-lg border-2 border-white focus:border-teal-400 outline-none text-lg">
+            </div>
+            
+            <div class="bg-pink-50 p-4 rounded-xl border-2 border-pink-200 shadow-sm">
+                <label for="player2" class="block text-left text-sm font-bold text-pink-800 mb-2">2 වන ශිෂ්‍යයාගේ නම:</label>
+                <input type="text" id="player2" placeholder="උදා: දසුන්" 
+                    class="w-full px-4 py-3 rounded-lg border-2 border-white focus:border-pink-400 outline-none text-lg">
+            </div>
+            
+            <p id="error-msg" class="text-red-500 font-bold hidden">කරුණාකර නම් දෙකම ඇතුළත් කරන්න!</p>
+            
+            <button onclick="startGame()" class="w-full btn-bounce bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-extrabold py-4 px-6 rounded-xl text-xl shadow-lg border-b-4 border-teal-700 mt-4">
+                ක්‍රීඩාව අරඹන්න 🚀
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="game-card hidden flex-col">
+        <div class="flex justify-between items-center bg-gray-100 p-3 rounded-xl mb-6 shadow-inner border-2 border-gray-200">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl">👩‍🎓👨‍🎓</span>
+                <span id="team-names" class="text-lg font-bold text-teal-800">කණ්ඩායම</span>
+            </div>
+            <div class="flex gap-3">
+                <div class="bg-white px-3 py-1 rounded-lg border-2 border-gray-300 font-bold text-sm text-gray-600" id="q-counter">1/10</div>
+                <div class="bg-yellow-100 px-3 py-1 rounded-lg border-2 border-yellow-400 font-bold text-sm text-yellow-800" id="score-display">ලකුණු: 0</div>
+            </div>
+        </div>
+        
+        <div class="flex-grow flex flex-col justify-center mb-6">
+            <h2 id="question-text" class="text-2xl md:text-3xl font-extrabold text-gray-800 leading-snug">ප්‍රශ්නය මෙහි දිස්වේ</h2>
+        </div>
+
+        <div id="options-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-auto">
+            <!-- Options dynamically added here -->
+        </div>
+    </div>
+
+    <!-- Explanation Modal Overlay -->
+    <div id="explanation-modal" class="modal-overlay">
+        <div class="modal-content text-center border-4 border-white">
+            <div id="modal-icon" class="text-6xl mb-4">✅</div>
+            <h2 id="modal-title" class="text-3xl font-extrabold mb-4 text-gray-800">නිවැරදියි!</h2>
+            <p id="modal-desc" class="text-xl text-gray-700 font-semibold mb-8 bg-gray-50 p-4 rounded-xl border-2 border-gray-100">පැහැදිලි කිරීම මෙහි දිස්වේ.</p>
+            <button onclick="nextQuestion()" class="w-full btn-bounce bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl text-xl shadow-lg border-b-4 border-blue-800">
+                ඊළඟ ප්‍රශ්නය ➡️
+            </button>
+        </div>
+    </div>
+
+    <!-- Result Screen -->
+    <div id="result-screen" class="game-card hidden flex-col items-center">
+        <div class="text-7xl mb-4">🏆</div>
+        <h1 id="result-names" class="text-2xl md:text-3xl font-extrabold text-purple-700 mb-4 leading-relaxed">සුබ පැතුම්!</h1>
+        <p class="text-lg text-gray-600 font-bold mb-6">ඔබ දෙදෙනාම ඉතා හොඳින් ක්‍රීඩා කළා!</p>
+        
+        <div class="bg-yellow-50 border-4 border-yellow-400 rounded-3xl p-8 mb-8 shadow-inner w-full max-w-sm relative">
+            <p class="text-gray-500 font-bold text-xl mb-2">ඔබගේ අවසන් ලකුණු</p>
+            <p class="text-6xl font-extrabold text-yellow-600"><span id="final-score">0</span><span class="text-3xl text-yellow-400">/5</span></p>
+        </div>
+
+        <button onclick="resetGame()" class="w-full max-w-sm btn-bounce bg-gray-800 hover:bg-gray-900 text-white font-bold py-4 px-6 rounded-xl text-xl shadow-lg border-b-4 border-black">
+            🔄 නැවත ක්‍රීඩා කරන්න
+        </button>
+    </div>
+
+    <!-- Prepared by text -->
+    <div class="fixed bottom-2 w-full text-center text-sm md:text-base font-extrabold text-teal-900 z-40 bg-white/40 py-1 backdrop-blur-sm shadow-sm">
+        Prepared by Charindu Thennakoon
+    </div>
+
+    <script>
+        // Game Data for 10 questions (0.5 marks each)
+        const questions = [
+            {
+                item: "1. 'ප්‍රියතම වර්ණය' - මෙය අන්තර්ජාලයේ බෙදා ගැනීමට ආරක්ෂිතද?",
+                options: [
+                    { text: "බෙදා ගැනීමට ආරක්ෂිතයි", isCorrect: true, color: "bg-green-500", border: "border-green-700" },
+                    { text: "පුද්ගලිකව තබාගත යුතුයි", isCorrect: false, color: "bg-red-500", border: "border-red-700" }
+                ],
+                explanation: "වර්ණය කාටවත් කීමෙන් හානියක් නොමැත."
+            },
+            {
+                item: "2. 'නිවසේ ලිපිනය' - මෙය අන්තර්ජාලයේ බෙදා ගැනීමට ආරක්ෂිතද?",
+                options: [
+                    { text: "බෙදා ගැනීමට ආරක්ෂිතයි", isCorrect: false, color: "bg-green-500", border: "border-green-700" },
+                    { text: "පුද්ගලිකව තබාගත යුතුයි", isCorrect: true, color: "bg-red-500", border: "border-red-700" }
+                ],
+                explanation: "නාඳුනන අයට ඔබගේ නිවස සොයාගත හැකි නිසා මෙය රහසිගතව තබාගත යුතුය."
+            },
+            {
+                item: "3. 'ප්‍රියතම ක්‍රීඩාව' - මෙය අන්තර්ජාලයේ බෙදා ගැනීමට ආරක්ෂිතද?",
+                options: [
+                    { text: "බෙදා ගැනීමට ආරක්ෂිතයි", isCorrect: true, color: "bg-green-500", border: "border-green-700" },
+                    { text: "පුද්ගලිකව තබාගත යුතුයි", isCorrect: false, color: "bg-red-500", border: "border-red-700" }
+                ],
+                explanation: "ප්‍රියතම ක්‍රීඩාව යනු සාමාන්‍ය තොරතුරකි."
+            },
+            {
+                item: "4. 'දුරකථන අංකය' - මෙය අන්තර්ජාලයේ බෙදා ගැනීමට ආරක්ෂිතද?",
+                options: [
+                    { text: "බෙදා ගැනීමට ආරක්ෂිතයි", isCorrect: false, color: "bg-green-500", border: "border-green-700" },
+                    { text: "පුද්ගලිකව තබාගත යුතුයි", isCorrect: true, color: "bg-red-500", border: "border-red-700" }
+                ],
+                explanation: "අනවශ්‍ය ඇමතුම් පැමිණිය හැකි බැවින් මෙය ලබා නොදිය යුතුය."
+            },
+            {
+                item: "5. 'පාසලේ නම' - මෙය අන්තර්ජාලයේ බෙදා ගැනීමට ආරක්ෂිතද?",
+                options: [
+                    { text: "බෙදා ගැනීමට ආරක්ෂිතයි", isCorrect: false, color: "bg-green-500", border: "border-green-700" },
+                    { text: "පුද්ගලිකව තබාගත යුතුයි", isCorrect: true, color: "bg-red-500", border: "border-red-700" }
+                ],
+                explanation: "නාඳුනන පුද්ගලයින් ඔබව පාසල අසලදී සොයාගැනීමට ඉඩ ඇති බැවින් ප්‍රවේශම් වන්න."
+            },
+            {
+                item: "6. 'සුරතල් සතාගේ නම' - මෙය අන්තර්ජාලයේ බෙදා ගැනීමට ආරක්ෂිතද?",
+                options: [
+                    { text: "බෙදා ගැනීමට ආරක්ෂිතයි", isCorrect: true, color: "bg-green-500", border: "border-green-700" },
+                    { text: "පුද්ගලිකව තබාගත යුතුයි", isCorrect: false, color: "bg-red-500", border: "border-red-700" }
+                ],
+                explanation: "මෙය බෙදාගැනීම සාමාන්‍යයෙන් ආරක්ෂිත වේ."
+            },
+            {
+                item: "7. ඔබගේ නිවසේ ලිපිනය හෝ දුරකථන අංකය මාර්ගගතව දැඩි ලෙස රහසිගතව තබාගත යුත්තේ ඇයි?",
+                options: [
+                    { text: "1. නාඳුනන පුද්ගලයින්ට අපව සොයාගැනීමට හෝ කරදර කිරීමට හැකි නිසා.", isCorrect: true, color: "bg-blue-500", border: "border-blue-700" },
+                    { text: "2. අපගේ මිතුරන්ට අපව අමතක වන නිසා.", isCorrect: false, color: "bg-purple-500", border: "border-purple-700" },
+                    { text: "3. අන්තර්ජාලයේ දත්ත අවසන් වන නිසා.", isCorrect: false, color: "bg-orange-500", border: "border-orange-700" },
+                    { text: "4. පාසලේ ගුරුවරුන් තරහ වන නිසා.", isCorrect: false, color: "bg-teal-500", border: "border-teal-700" }
+                ],
+                explanation: "ඔබගේ ආරක්ෂාව ඉතා වැදගත් වේ. නාඳුනන අයට ඔබව සොයාගැනීමට ඉඩ නොදෙන්න."
+            },
+            {
+                item: "8. අන්තර්ජාලය හරහා පුද්ගලික තොරතුරු ඉල්ලා සිටින විට ඔබ කළ යුත්තේ කුමක්ද?",
+                options: [
+                    { text: "1. ඔවුන් අසන සියලුම විස්තර ලබා දීම.", isCorrect: false, color: "bg-purple-500", border: "border-purple-700" },
+                    { text: "2. කිසිදු තොරතුරක් ලබා නොදී විශ්වාසවන්ත වැඩිහිටියෙකුට පැවසීම.", isCorrect: true, color: "bg-blue-500", border: "border-blue-700" },
+                    { text: "3. බොරු තොරතුරු විශාල ප්‍රමාණයක් ලබා දීම.", isCorrect: false, color: "bg-orange-500", border: "border-orange-700" },
+                    { text: "4. වහාම ඔවුන්ට මුදල් යැවීම.", isCorrect: false, color: "bg-teal-500", border: "border-teal-700" }
+                ],
+                explanation: "පුද්ගලික තොරතුරු ඉල්ලන විට සැමවිටම දෙමාපියන් හෝ ගුරුවරුන් දැනුවත් කරන්න."
+            },
+            {
+                item: "9. මාර්ගගතව තොරතුරු බෙදා ගැනීම ගැන ඔබට සැකයක් ඇත්නම්, උදව් ඉල්ලිය හැක්කේ කාගෙන්ද?",
+                options: [
+                    { text: "1. අන්තර්ජාලයෙන් අලුතින් හඳුනාගත් මිතුරෙකුගෙන්.", isCorrect: false, color: "bg-purple-500", border: "border-purple-700" },
+                    { text: "2. පරිගණක ක්‍රීඩා කරන වෙනත් ළමයෙකුගෙන්.", isCorrect: false, color: "bg-orange-500", border: "border-orange-700" },
+                    { text: "3. දෙමාපියන් හෝ ගුරුවරුන් වැනි විශ්වාසදායක වැඩිහිටියෙකුගෙන්.", isCorrect: true, color: "bg-blue-500", border: "border-blue-700" },
+                    { text: "4. සැකය ගැන කිසිවෙකුට නොකියා සිටීම.", isCorrect: false, color: "bg-teal-500", border: "border-teal-700" }
+                ],
+                explanation: "සෑමවිටම දෙමාපියන් හෝ ගුරුවරුන් වැනි විශ්වාසවන්ත වැඩිහිටියෙකුට පවසන්න."
+            },
+            {
+                item: "10. අපහසු හඳුනාගත නොහැකි Chatbot එකකට මුරපදයක් ලබා දුන්නොත් කුමක් සිදුවිය හැකිද?",
+                options: [
+                    { text: "1. අපගේ පරිගණකය වඩාත් වේගවත් වේ.", isCorrect: false, color: "bg-purple-500", border: "border-purple-700" },
+                    { text: "2. අපට අලුත් වීඩියෝ ගේම් එකක් නොමිලේ ලැබේ.", isCorrect: false, color: "bg-orange-500", border: "border-orange-700" },
+                    { text: "3. Chatbot එක අපගේ හොඳම මිතුරා බවට පත් වේ.", isCorrect: false, color: "bg-teal-500", border: "border-teal-700" },
+                    { text: "4. අපගේ ගිණුම් වලට අනවසරයෙන් ඇතුළු වී තොරතුරු සොරකම් කළ හැක.", isCorrect: true, color: "bg-blue-500", border: "border-blue-700" }
+                ],
+                explanation: "මුරපද කිසිවිටෙකත් කිසිවෙකු සමඟ හෝ Chatbot එකක් සමඟ බෙදා නොගන්න."
+            }
+        ];
+
+        let state = { p1: "", p2: "", score: 0, qIndex: 0 };
+
+        function startGame() {
+            const p1 = document.getElementById('player1').value.trim();
+            const p2 = document.getElementById('player2').value.trim();
+            if (!p1 || !p2) {
+                document.getElementById('error-msg').classList.remove('hidden');
+                return;
+            }
+            state.p1 = p1; state.p2 = p2; state.score = 0; state.qIndex = 0;
+            
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            document.getElementById('game-screen').classList.add('flex');
+            document.getElementById('team-names').textContent = `${p1} සහ ${p2}`;
+            
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const q = questions[state.qIndex];
+            document.getElementById('q-counter').textContent = `${state.qIndex + 1}/10`;
+            document.getElementById('score-display').textContent = `ලකුණු: ${state.score}`;
+            document.getElementById('question-text').textContent = q.item;
+
+            const container = document.getElementById('options-container');
+            container.innerHTML = "";
+
+            q.options.forEach(opt => {
+                const btn = document.createElement('button');
+                // Ensure options are shown properly whether True/False or MCQ format
+                btn.className = `w-full btn-bounce ${opt.color} text-white font-bold py-3 px-4 rounded-2xl text-base md:text-lg shadow-lg border-b-4 ${opt.border}`;
+                btn.textContent = opt.text;
+                btn.onclick = () => checkAnswer(opt.isCorrect, q.explanation);
+                container.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(isCorrect, explanation) {
+            if (isCorrect) {
+                state.score += 0.5; // Increment by half mark
+                document.getElementById('modal-icon').textContent = "🎉";
+                document.getElementById('modal-title').textContent = "නිවැරදියි!";
+                document.getElementById('modal-title').className = "text-3xl font-extrabold mb-4 text-green-600";
+            } else {
+                document.getElementById('modal-icon').textContent = "🤔";
+                document.getElementById('modal-title').textContent = "වැරදියි!";
+                document.getElementById('modal-title').className = "text-3xl font-extrabold mb-4 text-red-600";
+            }
+            
+            document.getElementById('modal-desc').textContent = explanation;
+            document.getElementById('score-display').textContent = `ලකුණු: ${state.score}`;
+            
+            // Show modal
+            document.getElementById('explanation-modal').classList.add('active');
+        }
+
+        function nextQuestion() {
+            document.getElementById('explanation-modal').classList.remove('active');
+            state.qIndex++;
+            if (state.qIndex < questions.length) {
+                setTimeout(loadQuestion, 300); // Wait for modal out animation
+            } else {
+                setTimeout(showResults, 300);
+            }
+        }
+
+        function showResults() {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('flex');
+            
+            const resScreen = document.getElementById('result-screen');
+            resScreen.classList.remove('hidden');
+            resScreen.classList.add('flex');
+            
+            document.getElementById('result-names').textContent = `සුබ පැතුම් ${state.p1} සහ ${state.p2}!`;
+            document.getElementById('final-score').textContent = state.score;
+            
+            shootConfetti();
+        }
+
+        function resetGame() {
+            document.getElementById('player1').value = "";
+            document.getElementById('player2').value = "";
+            document.getElementById('error-msg').classList.add('hidden');
+            
+            document.getElementById('result-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('flex');
+            
+            const startScreen = document.getElementById('start-screen');
+            startScreen.classList.remove('hidden');
+            startScreen.classList.add('flex');
+            
+            document.querySelectorAll('.confetti').forEach(c => c.remove());
+        }
+
+        function shootConfetti() {
+            const colors = ['#f2d74e', '#95c3de', '#ff9a91', '#a2d1a4', '#b39ddb'];
+            for (let i = 0; i < 100; i++) {
+                let confetti = document.createElement('div');
+                confetti.className = 'confetti rounded-sm';
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.animation = `fall ${Math.random() * 3 + 2}s linear forwards`;
+                confetti.style.animationDelay = Math.random() * 0.5 + 's';
+                document.body.appendChild(confetti);
+            }
+        }
+    </script>
+</body>
+</html>
